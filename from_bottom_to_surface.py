@@ -18,9 +18,9 @@ from matplotlib.path import Path
 from Back_forecast_function import get_fvcom
 ######## Hard codes ##########
 Model='30yr'
-point_data=[]
+point_data='nes_lat_lon.csv' #what is this?
 num=1#how many point do you want forecast
-point_id=a*10 # here we are subsampling every tenth particle
+subsample=10 # here we are subsampling every tenth particle
 #if have drifter_ID it will be use how many drifter have how many data 
 end_times=dt.datetime(2010,5,1)
 w=0.00005 #descent rate in m/s
@@ -28,52 +28,38 @@ wind_get_type='FVCOM'#'NCEP'
 wind=0#if you don't want have wind correct,wind =0 
 data_type='hourly'#hourly or month
 FNCL='necscoast_worldvec.dat' #coastline data
-data = np.genfromtxt('sea.csv',dtype=None,names=['x','y','h'],delimiter=',')    
+xi = np.arange(-78.,-55.00,0.2)
+yi = np.arange(34,46,0.2)
+data = np.genfromtxt('sea.csv',dtype=None,names=['x','y','h'],delimiter=',')# what is this
+x=data['x']
+y=data['y']
+h=data['h']
+xb,yb,hb_mean,hb_median,hb_std,hb_num = sh_bindata(x, y, h, xi, yi)
+hb_median=abs(hb_mean)
+xxxb,yyyb = np.meshgrid(xb, yb)
 plt.figure()
+CS=plt.contour(xxxb, yyyb, -abs(hb_mean.T),levels=[-200,-100])
+plt.clabel(CS, inline=1, fontsize=8,fmt='%4.0f')
+plt.axis([-78,-55,34,46],linewidth=0.5)
+CL=np.genfromtxt(FNCL,names=['lon','lat'])
+plt.plot(CL['lon'],CL['lat'],'b-',linewidth=0.5)
+data = np.genfromtxt(point_data,dtype=None,names=['local','lon','lat'],delimiter=',',skip_header=1) 
 tongji=0
 for a in np.arange(312):#313
     print 'a',a
+    point_id=a*subsample
     try:
-        x=[]
-        y=[]
-        h=[]
-        x=data['x']
-        y=data['y']
-        h=data['h']
-        xi = np.arange(-78.,-55.00,0.2)
-        yi = np.arange(34,46,0.2)
-        xb,yb,hb_mean,hb_median,hb_std,hb_num = sh_bindata(x, y, h, xi, yi)
-        hb_median=abs(hb_mean)
-        xxxb,yyyb = np.meshgrid(xb, yb)
-        CS=plt.contour(xxxb, yyyb, -abs(hb_mean.T),levels=[-200,-100])
-        
-        plt.clabel(CS, inline=1, fontsize=8,fmt='%4.0f')
-            
-        plt.axis([-78,-55,34,46],linewidth=0.5)
-        
-        ########back forecast ########## 
-        CL=np.genfromtxt(FNCL,names=['lon','lat'])
-        plt.plot(CL['lon'],CL['lat'],'b-',linewidth=0.5)
-        if data_type=='hourly':
-            
-            if point_data==[]:
-                if '30yr' in Model:
-                    point_data='nes_lon_lat.csv'
-            
-            data = np.genfromtxt(point_data,dtype=None,names=['local','lon','lat'],delimiter=',',skip_header=1) 
-            #plt.scatter(data['lon'][0:300],data['lat'][0:300])
-            #num=len(data['lon'])
-            
-            lonp,latp = nearest_point(data['lon'][point_id], data['lat'][point_id], x, y,0.8)
+        if data_type=='hourly':          
+            lonp,latp = nearest_point(data['lon'][point_id], data['lat'][point_id], x, y,0.8) # what is this parameter "0.8"?
             for vv in np.arange(len(x)):
                 if x[vv]==lonp and y[vv]==latp:
                     end_deep=-h[vv]+0
-            if end_deep>=0:
+            if end_deep>=0: # what is end_deep?
                 continue
-            start_times =end_times-timedelta(hours=int(np.abs(end_deep)/float(w*3600)))
+            start_times =end_times-timedelta(hours=int(np.abs(end_deep)/float(w*3600))) # why multiple by "w"? 
             
             plt.title('end_time=%s-%s-%s  w=%sm/s'%(end_times.year,end_times.month,end_times.day,w))
-            if a==3:
+            if a==3: # why a==3?
                 plt.scatter(data['lon'][point_id],data['lat'][point_id],marker='o',color='red',label='end bottom points',s=10)
             lonn=[]
             latt=[]
@@ -108,7 +94,7 @@ for a in np.arange(312):#313
             
     except:
         continue
-plt.savefig('back forecast30',dpi=400)
+plt.savefig('back_forecast30',dpi=400) # you should give it an output file name according to input parameters
 plt.show()
 print tongji
 
