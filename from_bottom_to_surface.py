@@ -1,14 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Dec  5 10:22:54 2016
-
-@author: hxu
-"""
-# -*- coding: utf-8 -*-
-"""
 Created on Thu Oct  6 16:34:20 2016
-
 @author: xiaojian
+Routine to backtrack particles that have landed on the bottom and determine where they came from.
+Involves prescribing (ie harcoding) the "descent rate".  
+Note: Uses a set of functions in "Back_forecast_function.py". 
 """
 
 import datetime as dt
@@ -23,7 +19,6 @@ from Back_forecast_function import get_fvcom
 def sh_bindata(x, y, z, xbins, ybins):
     """
     Bin irregularly spaced data on a rectangular grid.
-
     """
     ix=np.digitize(x,xbins)
     iy=np.digitize(y,ybins)
@@ -80,14 +75,14 @@ for a in np.arange(312):#313
         Model='30yr'
         point_data=[]
         num=1#how many point do you want forecast
-        point_id=a*10
+        point_id=a*10 # here we are subsampling every tenth particle
         #if have drifter_ID it will be use how many drifter have how many data 
         end_times=dt.datetime(2010,5,1)
-        w=0.00005 #m/s
+        w=0.00005 #descent rate in m/s
         wind_get_type='FVCOM'#'NCEP'
         wind=0#if you don't want have wind correct,wind =0 
         data_type='hourly'#hourly or month
-        FNCL='necscoast_worldvec.dat'
+        FNCL='necscoast_worldvec.dat' #coastline data
         data = np.genfromtxt('sea.csv',dtype=None,names=['x','y','h'],delimiter=',')    
         x=[]
         y=[]
