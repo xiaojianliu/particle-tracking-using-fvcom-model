@@ -16,56 +16,6 @@ from datetime import datetime, timedelta
 from math import radians, cos, sin, atan, sqrt  
 from matplotlib.dates import date2num,num2date
 ######## function ##########
-def sh_bindata(x, y, z, xbins, ybins):
-    """
-    Bin irregularly spaced data on a rectangular grid.
-    """
-    ix=np.digitize(x,xbins)
-    iy=np.digitize(y,ybins)
-    xb=0.5*(xbins[:-1]+xbins[1:]) # bin x centers
-    yb=0.5*(ybins[:-1]+ybins[1:]) # bin y centers
-    zb_mean=np.empty((len(xbins)-1,len(ybins)-1),dtype=z.dtype)
-    zb_median=np.empty((len(xbins)-1,len(ybins)-1),dtype=z.dtype)
-    zb_std=np.empty((len(xbins)-1,len(ybins)-1),dtype=z.dtype)
-    zb_num=np.zeros((len(xbins)-1,len(ybins)-1),dtype=int)    
-    for iix in range(1,len(xbins)):
-        for iiy in range(1,len(ybins)):
-#            k=np.where((ix==iix) and (iy==iiy)) # wrong syntax
-            k,=np.where((ix==iix) & (iy==iiy))
-            zb_mean[iix-1,iiy-1]=np.mean(z[k])
-            zb_median[iix-1,iiy-1]=np.median(z[k])
-            zb_std[iix-1,iiy-1]=np.std(z[k])
-            zb_num[iix-1,iiy-1]=len(z[k])
-            
-    return xb,yb,zb_mean,zb_median,zb_std,zb_num
-def nearest_point( lon, lat, lons, lats, length):  #0.3/5==0.06
-        '''Find the nearest point to (lon,lat) from (lons,lats),
-           return the nearest-point (lon,lat)
-           author: Bingwei'''
-        p = Path.circle((lon,lat),radius=length)
-        #numpy.vstack(tup):Stack arrays in sequence vertically
-        points = np.vstack((lons.flatten(),lats.flatten())).T  
-        
-        insidep = []
-        #collect the points included in Path.
-        for i in xrange(len(points)):
-            if p.contains_point(points[i]):# .contains_point return 0 or 1
-                insidep.append(points[i])  
-        # if insidep is null, there is no point in the path.
-        if not insidep:
-            print 'There is no model-point near the given-point.'
-            raise Exception()
-        #calculate the distance of every points in insidep to (lon,lat)
-        distancelist = []
-        for i in insidep:
-            ss=math.sqrt((lon-i[0])**2+(lat-i[1])**2)
-            distancelist.append(ss)
-        # find index of the min-distance
-        mindex = np.argmin(distancelist)
-        # location the point
-        lonp = insidep[mindex][0]; latp = insidep[mindex][1]
-        
-        return lonp,latp
 def getrawdrift(did,filename):
    '''
    routine to get raw drifter data from ascii files posted on the web
@@ -462,7 +412,8 @@ class get_fvcom():
             timeurl = """http://www.smast.umassd.edu:8080/thredds/dodsC/fvcom/hindcasts/30yr_gom3?time[0:1:316008]"""
             url = '''http://www.smast.umassd.edu:8080/thredds/dodsC/fvcom/hindcasts/30yr_gom3?h[0:1:48450],
             lat[0:1:48450],latc[0:1:90414],lon[0:1:48450],lonc[0:1:90414],nbe[0:1:2][0:1:90414],siglay[0:1:44][0:1:48450],
-            u[{0}:1:{1}][0:1:44][0:1:90414],v[{0}:1:{1}][0:1:44][0:1:90414],zeta[{0}:1:{1}][0:1:48450]'''
+            u[{0}:1:{1}][0:1:44][0:1:90414],v[{0}:1:{1}][0:1:44][0:1:90414],zeta[{0}:1:{1}][0:1:48450],
+            ww[{0}:1:{1}][0:1:44][0:1:48450]'''
             
             try:
                 mtime = netCDF4.Dataset(timeurl).variables['time'][:]
@@ -502,12 +453,12 @@ class get_fvcom():
         '''
         "get_data" not only returns boundary points but defines global attributes to the object
         '''
-        self.data = get_nc_data(url,'lat','lon','latc','lonc','siglay','h','nbe','u','v','zeta')#,'nv'
+        self.data = get_nc_data(url,'lat','lon','latc','lonc','siglay','h','nbe','u','v','zeta','ww')#,'nv'
         self.lonc, self.latc = self.data['lonc'][:], self.data['latc'][:]  #quantity:165095
         self.lons, self.lats = self.data['lon'][:], self.data['lat'][:]
         self.h = self.data['h'][:]; self.siglay = self.data['siglay'][:]; #nv = self.data['nv'][:]
         self.u = self.data['u']; self.v = self.data['v']; self.zeta = self.data['zeta']
-        
+        self.ww = self.data['ww']
         nbe1=self.data['nbe'][0];nbe2=self.data['nbe'][1];
         nbe3=self.data['nbe'][2]
         pointt = np.vstack((nbe1,nbe2,nbe3)).T; self.pointt = pointt
@@ -730,7 +681,7 @@ class get_fvcom():
         #print self.v_wind[0][0][0],self.u_wind[0][0][0]
         return vwind,uwind
         
-    def get_track(self,lon,lat,depth,starttime,wind,wind_get_type,w): #,b_index,nvdepth, 
+    def get_track(self,lon,lat,depth,starttime,wind,wind_get_type,w1): #,b_index,nvdepth, 
         '''
         Get forecast points start at lon,lat
         '''
@@ -745,7 +696,7 @@ class get_fvcom():
         
         lonl,latl = self.shrink_data(lon,lat,self.lonc,self.latc,1)#1 day elements(blue)
         lonk,latk = self.shrink_data(lon,lat,self.lons,self.lats,1)#1 day nodes(red)
-        
+        print 'in'
         try:
             if self.modelname == "GOM3" or self.modelname == "30yr":
                 lonp,latp = self.nearest_point(lon, lat, lonl, latl,1)#elements(blue)
@@ -769,6 +720,7 @@ class get_fvcom():
                 waterdepth = self.h[nodeindex]
             else:
                 waterdepth = self.h[nodeindex]+self.zeta[0,nodeindex]
+            
             modpts['time'].append(self.mTime[0])
             depth_total = self.siglay[:,nodeindex]*waterdepth; #print 'Here one' 
             for xx in np.arange(600):
@@ -800,14 +752,15 @@ class get_fvcom():
             u_t1 = self.u[i,layer,elementindex][0]; v_t1 = self.v[i,layer,elementindex][0]
             u_t2 = self.u[i-1,layer,elementindex][0]; v_t2 = self.v[i-1,layer,elementindex][0]
             u_t = -(u_t1+u_t2)/2; v_t = -(v_t1+v_t2)/2
-            
+            w_t1=self.ww[i,layer,nodeindex][0]
+            w_t2=self.ww[i,layer,nodeindex][0]
             #u_t,v_t = self.uvt(u_t1,v_t1,u_t2,v_t2)
-
+            w=(w_t1+w_t2)/2
             starttimes=starttime+timedelta(hours=i)
             #print 'starttime',starttimes
             if wind==0:
 
-                dx = 60*60*u_t; dy = 60*60*v_t;dz=60*60*w
+                dx = 60*60*u_t; dy = 60*60*v_t;dz=60*60*(w+w1)
             else:
                 if wind_get_type=='NCEP':
                     v_wind,u_wind=self.get_wind_ncep(starttimes,lat,lon)
@@ -872,8 +825,7 @@ class get_fvcom():
                 else:
                     waterdepth = self.h[nodeindex]+self.zeta[i+1,nodeindex]
                 modpts['time'].append(self.mTime[i-1])            
-                if depth+sum_deep>=0:
-                    break
+                
                 depth_total = self.siglay[:,nodeindex]*waterdepth 
                 for xx in np.arange(600):
                     if waterdepth<(abs(depth)):
@@ -886,7 +838,10 @@ class get_fvcom():
                 modpts['lon'].append(lon); modpts['lat'].append(lat); modpts['layer'].append(layer); 
                 modpts['layer'].append(layer)
                 modpts['deep'].append(depth+sum_deep)
-                #print modpts
+                if depth+sum_deep>=0:
+                 
+                    return modpts,meanwindspeed
+                    break
                 
                 if waterdepth<(abs(depth)):
                     print 'This point hits the land here.Less than %d meter.'%abs(depth)
