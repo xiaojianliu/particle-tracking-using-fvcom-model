@@ -806,7 +806,7 @@ class get_fvcom():
             w_t1=self.ww[i,layer,nodeindex][0]
             w_t2=self.ww[i,layer,nodeindex][0]
             #u_t,v_t = self.uvt(u_t1,v_t1,u_t2,v_t2)
-            w=(w_t1+w_t2)/2
+            w=-(w_t1+w_t2)/2
             starttimes=starttime+timedelta(hours=i)
             #print 'starttime',starttimes
             if wind==0:
