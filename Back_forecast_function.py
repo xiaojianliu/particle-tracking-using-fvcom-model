@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mon Oct 26 14:15:03 2015
-the function about how to get and compare the drifter and model data
+This module includes functions related to  comparing the drifter and model data
 @author: qianran
+Modifications by Xiaojian Liu and JiM in 2016 and 2017
 """
 import sys
 import datetime as dt
@@ -113,6 +114,11 @@ def nearest_point1( lon, lat, lons, lats, length):  #0.3/5==0.06
         
         return lonp,latp
 def get_drifter_track(method_of_drifter,start_time, days,drifter_ID):  
+    # this function gets drifter data in user-specified source
+    # the "method_of_drifter" is actually the type of drifter data which can include:
+    # raw, csv, erddap, or npy
+    # It returns a dictionary with "drpoints" include time, lat, lon
+    # Note: in teh case of erddap source, it subtracts 4 hours from the erddap time due to an issue with erddap
     dr_points=dict(lon=[],lat=[],time=[]) 
     drpoints=dict(ids=[],lat_hr=[],lon_hr=[],lon=[],lat=[],time=[],distance=[])
     drifter_points = dict(lon=[],lat=[],time=[])
@@ -132,6 +138,7 @@ def get_drifter_track(method_of_drifter,start_time, days,drifter_ID):
         id=drifter_ID
         ids=id
         dr_point['time'],dr_point['lat'],dr_point['lon'] =get_drifter_erddap(id,start_time,days+1)
+        # why are you adding 1 to the day?
         #print dr_points['time']        
         for w in range(len(dr_point['time'])):       
             times=[]       
@@ -235,7 +242,7 @@ def get_drifter_erddap(id,start_time,days):
     for k in range(len(df)):
         #print df.time[k]
         df.time[k]=parse(df.time[k][:-1])
-    df=df[df.longitude <=-20]
+    df=df[df.longitude <=-20]#why this?
     #print df.time.values
     return df.time.values,df.latitude.values,df.longitude.values
     
@@ -460,7 +467,7 @@ class get_fvcom():
             self.url = url
 
         elif self.modelname == "30yr": #start at 1977/12/31 23:00, end at 2014/1/1 0:0, time units:hours
-            timeurl = """http://www.smast.umassd.edu:8080/thredds/dodsC/fvcom/hindcasts/30yr_gom3?time[0:1:316008]"""
+            timeurl = """http://www.smast.umassd.edu:8080/thredds/dodsC/fvcom/hindcasts/30yr_gom3?time[0:1:333551]"""
             url = '''http://www.smast.umassd.edu:8080/thredds/dodsC/fvcom/hindcasts/30yr_gom3?h[0:1:48450],
             lat[0:1:48450],latc[0:1:90414],lon[0:1:48450],lonc[0:1:90414],nbe[0:1:2][0:1:90414],siglay[0:1:44][0:1:48450],
             u[{0}:1:{1}][0:1:44][0:1:90414],v[{0}:1:{1}][0:1:44][0:1:90414],zeta[{0}:1:{1}][0:1:48450],
@@ -479,16 +486,15 @@ class get_fvcom():
             mett = emodtime.strftime('%m/%d/%Y %H:%M') #'''
             # get number of days from 11/17/1858
             #print starttime
-            t1 = (starttime - datetime(1858,11,17)).total_seconds()/86400 
-            t2 = (endtime - datetime(1858,11,17)).total_seconds()/86400
+            t1 = (starttime - datetime(1858,11,17)).total_seconds()/86400 # hours since 1858 time to starttime
+            t2 = (endtime - datetime(1858,11,17)).total_seconds()/86400   # hours since 1858 time to endtime
             if not mtime[0]<t1<mtime[-1] or not mtime[0]<t2<mtime[-1]:
                 #print 'Time: Error! Model(massbay) only works between %s with %s(UTC).'%(mstt,mett)
                 print 'Time: Error! Model(30yr) only works between 1978-1-1 with 2014-1-1(UTC).'
                 raise Exception()
             
-            tm1 = mtime-t1; #tm2 = mtime-t2
-            #print mtime,tm1
-            index1 = np.argmin(abs(tm1)); #index2 = np.argmin(abs(tm2)); print index1,index2
+            tm1 = mtime-t1; #hours into the model at starttime
+            index1 = np.argmin(abs(tm1)); #
             index2 = index1 + self.hours
             url = url.format(index1, index2)
             Times = []
